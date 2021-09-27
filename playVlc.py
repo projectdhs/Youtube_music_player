@@ -942,7 +942,7 @@ def check_update():
         source=requests.get("http://mcheck.projectdh.link").text
     try:
         if(source!='unable'):
-            messagebox.showinfo("안내", "OS: "+osinfo+"\n현재 버전: 0.2\n최신 버전: "+source +"\n항상 최신버전을 유지해주세요.\n최신버전 다운로드: http://ytplayer.projectdh.link")
+            messagebox.showinfo("안내", "OS: "+osinfo+"\n현재 버전: 0.3\n최신 버전: "+source +"\n항상 최신버전을 유지해주세요.\n최신버전 다운로드: http://ytplayer.projectdh.link")
         else:
             messagebox.showinfo("안내", "업데이트 확인 실패하였습니다.")
     except:
