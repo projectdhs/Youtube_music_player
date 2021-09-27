@@ -14,6 +14,9 @@ import unicodedata
 import emoji
 from urllib.parse import urlparse, parse_qs
 
+client='windows'
+osinfo='Windows'
+
 kill1=1
 tr=0
 volume=50
@@ -396,16 +399,6 @@ def update():
     text.set(str('%02d'%min1) + ":" + str('%02d'%sec1)+" | " + str('%02d'%min) + ":" + str('%02d'%sec))
 
 
-    if(tr==1):
-        for selected in range(len(list_box.curselection())):
-            list_box.select_clear(list_box.curselection()[selected])
-        if(set_rand==0):
-            list_box.selection_set(nowa)
-            list_box.see(nowa)
-        else:
-            list_box.selection_set(rand_num[nowa])
-            list_box.see(rand_num[nowa])  
-        tr=0
 
     if(len(list_box.curselection())>1):
         for selected in range(len(list_box.curselection())):
@@ -417,7 +410,27 @@ def update():
             list_box.selection_set(rand_num[nowa])
             list_box.see(rand_num[nowa])    
     root.after(250, update)
-
+    if(tr>0):
+        tr+=1
+    if(tr==4):
+        for selected in range(len(list_box.curselection())):
+            list_box.select_clear(list_box.curselection()[selected])
+        if(set_rand==0):
+            list_box.selection_set(nowa)
+            list_box.see(nowa)
+        else:
+            list_box.selection_set(rand_num[nowa])
+            list_box.see(rand_num[nowa])  
+        tr=0
+    if(len(list_box.curselection())>1):
+        for selected in range(len(list_box.curselection())):
+            list_box.select_clear(list_box.curselection()[selected])
+        if(set_rand==0):
+            list_box.selection_set(nowa)
+            list_box.see(nowa)
+        else:
+            list_box.selection_set(rand_num[nowa])
+            list_box.see(rand_num[nowa])   
 def onselect():
     global list_box, player, mix_list, nowa, d, k, kk, selecting, error
 
@@ -575,13 +588,17 @@ def load_list():
                 line = f.readline()
                 num=0
                 while line:
-                    val1 = line.split(",")[0].replace(";", ",")
+                    video_title = line.split(",")[0].replace(";", ",")
                     val2 = line.split(",")[1]
-                    title_list.append(val1)
-                    mix_list.append(val2)
-
-                    list_box.insert(tk.END, val1)
-                    
+                    em = removeEmoji(video_title)
+                    try:
+                        title_list.append(em)
+                        list_box.insert(tk.END, em)
+                    except:
+                        em = removeEmoji2(video_title)
+                        title_list.append(em)
+                        list_box.insert(tk.END, em)
+                    mix_list.append(val2) 
                     line = f.readline()
                     num+=1
                 max_song=len(mix_list)
@@ -600,6 +617,8 @@ def load_list():
             print(e)
 def save_list():
     global title_list, mix_list
+    #print(len(title_list))
+    #print(len(mix_list))
     filename = filedialog.asksaveasfilename(initialfile='playlist', defaultextension='.csv', initialdir="./preset", title="재생목록 저장",
                                           filetypes=(("CSV", "*.csv"), 
                                           ("all files", "*.*")))
@@ -613,7 +632,9 @@ def save_list():
                 for i in range(len(title_list)):
                     num+=1
                     title_list[i] = str(title_list[i]).replace(',', ';')
-                    f.write(title_list[i]+','+mix_list[i])
+
+                    #print(title_list[i]+','+mix_list[i])
+                    f.writelines(title_list[i]+','+mix_list[i].replace('\n', '')+'\n')
             messagebox.showinfo("안내", "%s개의 곡을 저장목록에 저장하였습니다."%(str(num)))
         except PermissionError as e:
             messagebox.showerror("오류", "재생목록 저장 실패, 다른 이름으로 저장해주세요.")
@@ -911,8 +932,7 @@ def play():
         if(vlc_status == vlc.State.Paused):
             player.pause()
             return "play"
-client='windows'
-osinfo='Windows'
+
 def info_sonami():
     messagebox.showinfo("개발자 소개", "개발자의 블로그에 놀러오세요.\n블로그 주소: https://blog.projectdh.link")
 def check_update():
