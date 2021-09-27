@@ -1083,8 +1083,3 @@ root.config(menu=menubar)
 #t.start()
 root.after(100, update)
 root.mainloop()
-
-
-
-
-
