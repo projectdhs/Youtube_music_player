@@ -1,16 +1,18 @@
 import time, vlc, os, random, youtube_dl, requests, json
 from bs4 import BeautifulSoup
-import urllib3
-import threading, sys
+import urllib3, sys
 import urllib.parse, re, requests
 import socket
 from urllib.error import URLError
 import tkinter as tk
 from tkinter import ttk
+
 from tkinter import simpledialog
 from tkinter import messagebox
 from tkinter import filedialog
-import csv
+import unicodedata
+import emoji
+from urllib.parse import urlparse, parse_qs
 
 kill1=1
 tr=0
@@ -44,6 +46,242 @@ d=0
 k=0
 error=0
 
+
+vlc_instance = vlc.Instance('--verbose -1')
+player = vlc_instance.media_player_new()
+ready=1
+title_list=[]
+mix_list=[]
+
+def default():
+    return "hello"
+def removeEmoji2(value):
+    new_subject = ""
+    astral = re.compile(r'([^\u0000-\uffff])')
+    for j, ss in enumerate(re.split(astral, value)):
+        if not j%2:
+            new_subject += ss
+        else:
+            new_subject += '?' 
+    return new_subject
+def removeEmoji(value):
+    
+    em = emoji.get_emoji_regexp().sub(u'',unicodedata.normalize('NFKC', value))
+    return em
+def getVid(url):
+    # Examples:
+    # - http://youtu.be/SA2iWivDJiE
+    # - http://www.youtube.com/watch?v=_oPAwA_Udwc&feature=feedu
+    # - http://www.youtube.com/embed/SA2iWivDJiE
+    # - http://www.youtube.com/v/SA2iWivDJiE?version=3&amp;hl=en_US
+    query = urlparse(url)
+    if query.hostname == 'youtu.be': return query.path[1:]
+    if query.hostname in {'www.youtube.com', 'youtube.com'}:
+        if query.path == '/watch': return parse_qs(query.query)['v'][0]
+        if query.path[:7] == '/watch/': return query.path.split('/')[1]
+        if query.path[:7] == '/embed/': return query.path.split('/')[2]
+        if query.path[:3] == '/v/': return query.path.split('/')[2]
+        # below is optional for playlists
+        if query.path[:9] == '/playlist': return parse_qs(query.query)['list'][0]
+   # returns None for invalid YouTube url
+def add1url(url):
+    global title_list, mix_list, max_song,rand_num,list_box
+    h=0
+    if(str(url).find('youtube.com')==-1 and str(url).find('youtu.be')==-1):
+        url='https://www.youtube.com/watch?v='+url
+    while True:
+        if(h>3):
+            print("adding error")
+            messagebox.showerror("오류", "음악 추가 실패")
+            return "Error"
+        onekey=getVid(url)
+        if(onekey!=None):
+            try:
+                with youtube_dl.YoutubeDL(yt_ops) as ydl:
+                    info_dict = ydl.extract_info(onekey, download=False)
+            except youtube_dl.utils.DownloadError as e:
+                messagebox.showerror("오류안내", "재생할 수 없는 유튜브 URL입니다.")
+                return False
+            video_id = info_dict.get("id", None)
+            video_title = info_dict.get('title', None)
+            if(video_title.strip() == ""):
+                h+=1
+                continue
+
+            
+            em = removeEmoji(video_title)
+            mix_list.append(yt_init+video_id)
+            try:
+                title_list.append(em)
+                list_box.insert(tk.END, em)
+            except:
+                em = removeEmoji2(video_title)
+                title_list.append(em)
+                list_box.insert(tk.END, em)
+
+            max_song+=1
+            a = random.sample(range(0,max_song),max_song)
+            for cu in a:
+                #print(cu)
+                rand_num.append(cu)
+            messagebox.showinfo("안내", "성공적으로 음악을 추가하였습니다.")
+            return True
+        else:
+            messagebox.showerror("오류", "올바르지 않은 유튜브 URL입니다.")
+            return False
+
+ 
+def media_finish(event):
+    
+    global nowa, player,d,list_box,kk, error
+    kk=0
+    print("미디어 종료")
+    nowa+=1
+    if(nowa==max_song):
+        print("초기화")
+        nowa=0
+    serr=0
+    while True:
+        if(set_rand==0):
+            media = get_media(mix_list[nowa],title_list[nowa])
+        else:
+            media = get_media(mix_list[rand_num[nowa]],title_list[rand_num[nowa]])
+
+        if(media=="Unable"):
+            serr+=1
+            nowa+=1
+            if(nowa==max_song):
+                nowa=0
+            if(serr>3):
+                messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요.")
+                return False
+            continue
+        else:
+            error=0
+            video(media)
+            d=0
+            return False
+
+
+def chk(na):
+    #print(na)
+    req = urllib.request.Request(urllib.parse.unquote(na))
+    try:
+        res = urllib.request.urlopen(req, timeout=2)
+        print(res.status)
+        if(res.status!=200):
+            return "Forbidden"
+
+        else:
+            return "200"
+    except urllib.error.HTTPError as e:
+        return "Forbidden"
+    except URLError as error:
+        print(error.reason)
+        if isinstance(error.reason, socket.timeout):
+
+            return "200"
+
+        elif(len(str(error.reason).split("Errno"))>0):
+            if str(error.reason).split("Errno")[1].split("]")[0].strip()=="101":
+
+                return "200"
+        else:
+            print("other error")
+            return "Forbidden"
+# def chk(self):
+#     time.sleep(5)
+#     try:
+#         mix_init = requests.get('https://www.youtube.com/playlist?list=PL4fGSI1pDJn6jXS_Tv_N9B8Z0HTRVJE0m', headers=headers)
+#     except (requests.ConnectionError, requests.Timeout) as exception:
+#         print("no internets")
+#         messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요. 플레이어를 종료합니다.")
+#         self.root.destroy()
+def ytpl_parse(j1):
+    toGet=[]
+    titleList=[]
+
+    for i in j1['contents']['twoColumnWatchNextResults']['playlist']['playlist']['contents']:
+        if 'unplayableText' not in i['playlistPanelVideoRenderer']:
+            
+            vid = i['playlistPanelVideoRenderer']['videoId']
+            video_title=i['playlistPanelVideoRenderer']['title']['simpleText']
+
+            toGet.append(yt_init+vid)
+            em = removeEmoji(video_title)  
+            try:
+                titleList.append(em)
+            except:
+                em = removeEmoji2(video_title)
+                titleList.append(em)
+
+    return titleList, toGet
+def get_pl(url):
+    mix = None
+    while True:
+        try:
+            if(url.find('playlist?list=')!=-1 or url.find('&list=')!=-1):
+                mix = requests.get(url, timeout=5, headers=headers)
+            else:
+                return False, False
+        except (requests.ConnectionError, requests.Timeout) as exception:
+            print("no internet")
+        
+        except Exception as e:
+            time.sleep(2)
+            continue
+
+        soup = BeautifulSoup(mix.content, 'html.parser', from_encoding="utf8")
+        search_results = str(soup.findAll("script"))
+
+        if ("var ytInitialData = " in str(search_results)):
+            
+
+            str1 = search_results.strip().split('var ytInitialData = ')[1].split(';</script>')[0]
+            j1 = json.loads(str1, encoding='utf8', strict=False)
+
+            #f=open("C:/bin/0919.txt", 'w', encoding='utf-8')
+            #f.write(str1)
+            #f.close()
+
+            try:
+                if(url.find('&list=')!=-1):
+                    print(url)
+                    titleList, toGet = ytpl_parse(j1)
+                    return titleList, toGet
+                elif(url.find('?list=')!=-1):
+
+                    u = str(j1['contents']['twoColumnBrowseResultsRenderer']).split("playlistVideoRenderer")
+                    for i in range(1, 2):
+                        my = str(u[i])
+                        
+                        parses=urlparse(url)
+                        pl_init= parse_qs(parses.query)['list'][0]
+                        pl_vid = my.split(r"videoId': ")[1][1:].split(",")[0][:-1]
+                    vurl='https://www.youtube.com/watch?v=%s&list=%s'%(pl_vid, pl_init)
+                    print(vurl)
+
+                    mix = requests.get(vurl, timeout=5, headers=headers)
+                    soup = BeautifulSoup(mix.content, 'html.parser', from_encoding="utf8")
+                    search_results = str(soup.findAll("script"))
+
+                    if ("var ytInitialData = " in str(search_results)):
+
+                        str1 = search_results.strip().split('var ytInitialData = ')[1].split(';</script>')[0]
+                        j1 = json.loads(str1, encoding='utf8', strict=False)
+                        titleList, toGet = ytpl_parse(j1)
+                    
+                        return titleList, toGet
+                    else:
+                        return "notAdd", False
+
+            except:
+                print("에러1")
+                return False, False
+
+        else:
+            print("에러")
+            return False, False
 def get_media(url,name):
     h=0
     while True:
@@ -124,78 +362,61 @@ def resource_path(relative_path):
      if hasattr(sys, '_MEIPASS'):
          return os.path.join(sys._MEIPASS, relative_path)
      return os.path.join(os.path.abspath("."), relative_path)
-class App2(threading.Thread):
 
-    def __init__(self):
-        threading.Thread.__init__(self)
-        self.start()
+def update():
+    global player, text, kk, d, selecting, list_box, tr, kill1, play_button
 
-
-    def run(self):
-        global player, text, kk, d, selecting, list_box, error, tr, kill1
-        while True:
-            if(error==1):
-                time.sleep(2)
-                continue
-            else:
-                if(player.get_state() == vlc.State.Playing):
-                    
-
-                    duration = player.get_length()
-                    if(duration==-1):
-                        continue
-
-                    #print("duration: " + str(min)+":"+str(sec))
             
+    play_state = player.get_state()
+    if str(play_state) in ["State.Opening", "State.Playing", 'State.Paused']:
+        if str(play_state) == 'State.Paused':
+            back_btn_img = tk.PhotoImage(file=resource_path("play-fill.png"))
+        else:
+            back_btn_img = tk.PhotoImage(file=resource_path("pause-fill.png"))
+        
+        play_button.configure(image=back_btn_img)
+        play_button.image = back_btn_img
+        duration = player.get_length()
+        kk = int(player.get_time()/1000)
 
-                    if(d==0 and is_stop==0):
-                        
-                        
 
-                        kk = int(player.get_time()/1000)
-                        if(kk==0):
-                            continue
-                        if(kk==int(player.get_length()/1000)):
-                            continue
-                        
-                        if(kk!=-1):
-                            d=1
+        #print("duration: " + str(min)+":"+str(sec))
+        
+        min1=kk/60
+        sec1=kk%60  
 
-                    if(kk!=-1):
-                        min1=kk/60
-                        sec1=kk%60  
-                    else:
-                        min1=0
-                        sec1=0
+        min = int(duration/60000)
+        sec = int((duration/1000)%60)
+    else:
+        min1=0
+        sec1=0
 
-                    min = int(duration/60000)
-                    sec = int((duration/1000)%60)
-                    text.set(str('%02d'%min1) + ":" + str('%02d'%sec1)+" | " + str('%02d'%min) + ":" + str('%02d'%sec))
-                
-                    kk+=1
-                    if(tr==1):
-                        for selected in range(len(list_box.curselection())):
-                            list_box.select_clear(list_box.curselection()[selected])
-                        if(set_rand==0):
-                            list_box.selection_set(nowa)
-                            list_box.see(nowa)
-                        else:
-                            list_box.selection_set(rand_num[nowa])
-                            list_box.see(rand_num[nowa])  
-                        tr=0
-                    time.sleep(1)
-                    if(len(list_box.curselection())>1):
-                        for selected in range(len(list_box.curselection())):
-                            list_box.select_clear(list_box.curselection()[selected])
-                        if(set_rand==0):
-                            list_box.selection_set(nowa)
-                            list_box.see(nowa)
-                        else:
-                            list_box.selection_set(rand_num[nowa])
-                            list_box.see(rand_num[nowa])    
-            if(kill1==0):
-                text.set(str("00:00 | 00:00"))    
-                kill1=1
+        min=0
+        sec=0
+    text.set(str('%02d'%min1) + ":" + str('%02d'%sec1)+" | " + str('%02d'%min) + ":" + str('%02d'%sec))
+
+
+    if(tr==1):
+        for selected in range(len(list_box.curselection())):
+            list_box.select_clear(list_box.curselection()[selected])
+        if(set_rand==0):
+            list_box.selection_set(nowa)
+            list_box.see(nowa)
+        else:
+            list_box.selection_set(rand_num[nowa])
+            list_box.see(rand_num[nowa])  
+        tr=0
+
+    if(len(list_box.curselection())>1):
+        for selected in range(len(list_box.curselection())):
+            list_box.select_clear(list_box.curselection()[selected])
+        if(set_rand==0):
+            list_box.selection_set(nowa)
+            list_box.see(nowa)                                                                                                                                      
+        else:
+            list_box.selection_set(rand_num[nowa])
+            list_box.see(rand_num[nowa])    
+    root.after(250, update)
 
 def onselect():
     global list_box, player, mix_list, nowa, d, k, kk, selecting, error
@@ -265,6 +486,10 @@ def onselect_delete():
             is_stop=0
             serr=0
             while True:
+                print(nowa)
+                print(max_song)
+                if(nowa>=max_song-serr):
+                    nowa=0
                 if(set_rand==0):
                     media = get_media(mix_list[nowa],title_list[nowa])
                 else:
@@ -273,8 +498,7 @@ def onselect_delete():
                 if(media=="Unable"):
                     serr+=1
                     nowa+=1
-                    if(nowa==max_song):
-                        nowa=0
+
                     if(serr>3):
                         messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요.")
                         return False
@@ -389,7 +613,7 @@ def save_list():
                 for i in range(len(title_list)):
                     num+=1
                     title_list[i] = str(title_list[i]).replace(',', ';')
-                    f.write(title_list[i]+','+mix_list[i]+'\n')
+                    f.write(title_list[i]+','+mix_list[i])
             messagebox.showinfo("안내", "%s개의 곡을 저장목록에 저장하였습니다."%(str(num)))
         except PermissionError as e:
             messagebox.showerror("오류", "재생목록 저장 실패, 다른 이름으로 저장해주세요.")
@@ -464,46 +688,98 @@ def on10back():
         player.set_time(player.get_time()-10000)
     else:
         player.set_time(0)
+def on_closing():
+    MsgBox = tk.messagebox.askquestion ('안내','종료하시겠습니까?',icon = 'error')
+    if MsgBox == 'yes':
+        quit()
+def ondouble_play(event):
+    global list_box, player, mix_list, nowa, d, k, kk, selecting, error, tr,play_button,is_stop
+    
+    player.stop()
+    if(len(list_box.curselection())>0):
+        nowa=list_box.curselection()[0]
+        serr=0
+        while True:
+            
+            if(set_rand==1):
+                o=0
+                for chka in rand_num:
+                    
+                    if chka == nowa:
+                        nowa=o
+                        break
+                    o+=1
 
-class App(threading.Thread):
+                media = get_media(mix_list[rand_num[nowa]],title_list[rand_num[nowa]])
+            else:
+                media = get_media(mix_list[nowa],title_list[nowa])
 
-    def __init__(self):
-        threading.Thread.__init__(self)
-        self.start()
-
-    def callback(self):
-        self.root.quit()
-    def on_closing(self):
-        MsgBox = tk.messagebox.askquestion ('안내','종료하시겠습니까?',icon = 'error')
-        if MsgBox == 'yes':
-            quit()
-    def ondouble_play(self, event):
-        global list_box, player, mix_list, nowa, d, k, kk, selecting, error, tr,play_button,is_stop
-        
-        player.stop()
-        if(len(list_box.curselection())>0):
-            nowa=list_box.curselection()[0]
-            serr=0
-            while True:
+            if(media=="Unable"):
+                serr+=1
+                nowa+=1
+                if(nowa==max_song):
+                    nowa=0
+                if(serr>3):
+                    messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요.")
+                    return False
+                continue
+            else:
+                error=0
+                video(media)
+                k=1
+                d=0
+                is_stop=0
+                kk=0
+                selecting=1
+                serr=0
+                tr=1
+                back_btn_img = tk.PhotoImage(file=resource_path("play-fill.png"))
                 
-                if(set_rand==1):
-                    o=0
-                    for chka in rand_num:
-                        
-                        if chka == nowa:
-                            nowa=o
-                            break
-                        o+=1
+                play_button.configure(image=back_btn_img)
+                play_button.image = back_btn_img
+        
 
-                    media = get_media(mix_list[rand_num[nowa]],title_list[rand_num[nowa]])
-                else:
+                return False 
+
+def onEsc_key(event):
+    global list_box
+    for selected in range(len(list_box.curselection())):
+        list_box.select_clear(list_box.curselection()[selected])
+    if(set_rand==0):
+        list_box.selection_set(nowa)
+        list_box.see(nowa)
+    else:
+        list_box.selection_set(rand_num[nowa])
+        list_box.see(rand_num[nowa])    
+def ondelete_key(event):
+    global player,d,rand_num,list_box,title_list,mix_list,nowa,max_song,set_rand, error, d, is_stop
+    if(len(list_box.curselection())>0):
+        selection=list_box.curselection()[0]
+        if(nowa==selection):
+            player.stop()
+        list_box.delete(selection)
+        max_song-=1
+        #del(rand_num[rand_num[selection]])
+        del(title_list[selection])
+        del(rand_num[selection])
+        del(mix_list[selection])
+        if(nowa==selection):
+            serr=0
+            d=0
+            is_stop=0
+            while True:
+                print(nowa)
+                print(max_song)
+                if(nowa>=max_song-serr):
+                    nowa=0
+                if(set_rand==0):
                     media = get_media(mix_list[nowa],title_list[nowa])
+                else:
+                    media = get_media(mix_list[rand_num[nowa]],title_list[rand_num[nowa]])
 
                 if(media=="Unable"):
                     serr+=1
                     nowa+=1
-                    if(nowa==max_song):
-                        nowa=0
                     if(serr>3):
                         messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요.")
                         return False
@@ -511,226 +787,44 @@ class App(threading.Thread):
                 else:
                     error=0
                     video(media)
-                    k=1
-                    d=0
-                    is_stop=0
-                    kk=0
-                    selecting=1
-                    serr=0
-                    tr=1
-                    back_btn_img = tk.PhotoImage(file=resource_path("play-fill.png"))
-                    
-                    play_button.configure(image=back_btn_img)
-                    play_button.image = back_btn_img
-            
 
-                    return False 
- 
-    def chk(self):
-        time.sleep(5)
-        try:
-            mix_init = requests.get('https://www.youtube.com/playlist?list=PL4fGSI1pDJn6jXS_Tv_N9B8Z0HTRVJE0m', headers=headers)
-        except (requests.ConnectionError, requests.Timeout) as exception:
-            print("no internets")
-            messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요. 플레이어를 종료합니다.")
-            self.root.destroy()
-    def onEsc_key(self, event):
-        global list_box
-        for selected in range(len(list_box.curselection())):
-            list_box.select_clear(list_box.curselection()[selected])
-        if(set_rand==0):
-            list_box.selection_set(nowa)
-            list_box.see(nowa)
+                    return False
+    else:
+        messagebox.showerror("오류", "삭제할 곡이 없습니다.")
+def pre_song():
+    global player, nowa,kk,d, list_box, mix_list,rand_num, error
+
+    if(max_song>0):
+        kk=0
+        d=0
+        if(nowa==0):
+            print("초기화")
+            nowa=max_song-1
         else:
-            list_box.selection_set(rand_num[nowa])
-            list_box.see(rand_num[nowa])    
-    def ondelete_key(self, event):
-        global player,d,rand_num,list_box,title_list,mix_list,nowa,max_song,set_rand, error, d, is_stop
-        if(len(list_box.curselection())>0):
-            selection=list_box.curselection()[0]
-            if(nowa==selection):
-                player.stop()
-            list_box.delete(selection)
-            max_song-=1
-            #del(rand_num[rand_num[selection]])
-            del(title_list[selection])
-            del(rand_num[selection])
-            del(mix_list[selection])
-            if(nowa==selection):
-                serr=0
+            nowa-=1
+        player.stop()
+        #print(rand_num[nowa])
+        serr=0
+        while True:
+            if(set_rand==0):
+                media = get_media(mix_list[nowa],title_list[nowa])
+            else:
+                media = get_media(mix_list[rand_num[nowa]],title_list[rand_num[nowa]])
+            if(media=="Unable"):
+                serr+=1
+                nowa+=1
+                if(nowa==0):
+                    nowa=max_song-1
+                if(serr>3):
+                    messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요.")
+                    return False
+                continue
+            else:
+                error=0
+                video(media)
                 d=0
-                is_stop=0
-                while True:
-                    if(set_rand==0):
-                        media = get_media(mix_list[nowa],title_list[nowa])
-                    else:
-                        media = get_media(mix_list[rand_num[nowa]],title_list[rand_num[nowa]])
-
-                    if(media=="Unable"):
-                        serr+=1
-                        nowa+=1
-                        if(nowa==max_song):
-                            nowa=0
-                        if(serr>3):
-                            messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요.")
-                            return False
-                        continue
-                    else:
-                        error=0
-                        video(media)
-
-                        return False
-        else:
-            messagebox.showerror("오류", "삭제할 곡이 없습니다.")
-        
-    def run(self):
-        global play_button, controls_frame, now_song, text, list_box, Checky1, text1, text2
-
-
-        self.root = tk.Tk()
-        self.root.title('Youtube Music Player')
-        self.root.iconbitmap(resource_path("player.ico"))
-        self.root.geometry("650x400")
-        self.root.resizable(False, False)
-
-        self.root.protocol('WM_DELETE_WINDOW', self.on_closing)
-
-        self.root.bind('<Control-o>', openYT1)
-
-        menubar = tk.Menu(self.root)
-        filemenu = tk.Menu(menubar, tearoff=0)
-        editmenu = tk.Menu(menubar, tearoff=0)
-        savemenu = tk.Menu(menubar, tearoff=0)
-        
-
-        menubar.add_cascade(label="File", menu=filemenu)
-        menubar.add_cascade(label="Edit", menu=editmenu)
-
-        menubar.add_cascade(label="MYList", menu=savemenu)
-        filemenu.add_command(label="유튜브 플레이리스트 추가 (txt 파일)", command=openYT_txt)
-        filemenu.add_command(label="유튜브 플레이리스트 URL 추가", command=openYT)
-        
-        filemenu.add_command(label="유튜브 URL 추가", command=openYT_URL)
-        editmenu.add_command(label="선택한 곡 삭제", command=onselect_delete)
-        editmenu.add_command(label="모든 곡 삭제", command=delete_all)
-        
-        savemenu.add_command(label="저장된 재생목록 가져오기", command=load_list)
-        savemenu.add_command(label="현재 재생목록을 파일로 저장", command=save_list)
-        frm = tk.Frame(self.root)
-        frm.grid(row=0, column=0, sticky=tk.N+tk.S)
-        #window.rowconfigure(1, weight=1)
-        #window.columnconfigure(1, weight=1)
-        self.root.rowconfigure(1, weight=1)
-        self.root.columnconfigure(1, weight=1)
-
-
-
-
-        text = tk.StringVar()
-        text1 = tk.StringVar()
-        text2 = tk.StringVar()
-        text2.set("로그: 문제없음")
-
-
-        scrollbar = tk.Scrollbar(frm,orient="vertical")		# 스크롤바 생성
-        scrollbar.pack(side=tk.RIGHT, fill = "y")
-        
-
-        list_box = tk.Listbox(frm, width=40, height=20,yscrollcommand=scrollbar.set, activestyle=tk.NONE)
-        list_box.pack(expand=True, fill=tk.Y, padx=10, pady=15)
-        list_box.bind("<Double-Button-1>", self.ondouble_play)
-        list_box.bind("<Delete>", self.ondelete_key)
-        list_box.bind("<Escape>", self.onEsc_key)
-        #list_box.bind('<<ListboxSelect>>', onselect)
-
-        scrollbar.config(command = list_box.yview)
-
-
-        back_btn_img = tk.PhotoImage(file=resource_path("rewind-fill.png"))
-        
-        forward_btn_img = tk.PhotoImage(file=resource_path("speed-fill.png"))
-        play_btn_img = tk.PhotoImage(file=resource_path("play-fill.png"))
-        stop_btn_img = tk.PhotoImage(file=resource_path("stop-fill.png"))
-
-
-        forward_btn=tk.Button(self.root, text="10초 >>",command=on10forward)
-        forward_btn.place(x=480, y=120)
-
-        back_btn=tk.Button(self.root, text="<< 10초",command=on10back)
-        back_btn.place(x=410, y=120)
-
-
-        want_btn=tk.Button(self.root, text="선택한 곡 재생",command=onselect)
-        want_btn.place(x=470, y=200, anchor="center")
-
-        now_song = tk.Label(self.root, textvariable=text, font=("맑은고딕", 13, "italic"))
-        now_song1 = ttk.Label(self.root, textvariable=text1, wraplength=250, font=("맑은고딕", 11, "italic"))
-        error_label = tk.Label(self.root, textvariable=text2, wraplength=200)
-
-        back_button = tk.Button(self.root, image=back_btn_img, borderwidth=0, command=pre_song, state=tk.NORMAL)
-        forward_button = tk.Button(self.root, image=forward_btn_img, borderwidth=0, command=next_song)
-        play_button = tk.Button(self.root, image=play_btn_img, borderwidth=0, command=control_play_pause)
-        stop_button = tk.Button(self.root, image=stop_btn_img, borderwidth=0, command=stop_song)
-        Checky1=tk.IntVar()
-        checkbutton1=tk.Checkbutton(self.root, text="Shuffle", variable=Checky1, command=set_random)
-
-        checkbutton1.place(x=440, y=330)
-        
-        actual_slider = ttk.Scale(self.root, from_=0, to=100,
-                                command=ttk_slider_callback, value=50)
-
-        actual_slider.place(x=470, y=300,anchor="center")
-        now_song.place(x=430, y=20)
-        now_song1.place(x=480, y=80,anchor="center")
-        error_label.place(x=470, y=250, anchor="center")
-        
-        back_button.place(x=390, y=150)
-        play_button.place(x=440, y=150)
-        stop_button.place(x=490, y=150)
-        forward_button.place(x=540, y=150)
-
-
-        
-        
-        # self.root.protocol("WM_DELETE_WINDOW", self.callback)
-
-        # label = tk.Label(self.root, text="Hello World")
-        # label.pack()
-        self.root.config(menu=menubar)
-        t = threading.Thread(target=self.chk)
-        t.start()
-        self.root.mainloop()
-
-
-
-def chk(na):
-    req = urllib.request.Request(urllib.parse.unquote(na))
-    try:
-        res = urllib.request.urlopen(req, timeout=2)
-        print(res.status)
-        if(res.status!=200):
-            return "Forbidden"
-
-        else:
-            return "200"
-    except urllib.error.HTTPError as e:
-        return "Forbidden"
-    except URLError as error:
-        print(error.reason)
-        if isinstance(error.reason, socket.timeout):
-
-            return "200"
-
-        elif(len(str(error.reason).split("Errno"))>0):
-            if str(error.reason).split("Errno")[1].split("]")[0].strip()=="101":
-
-                return "200"
-        else:
-            print("other error")
-            return "Forbidden"
-
-
-
+                return False
+    #player.set_position(0.7)        
 def next_song():
     global player, nowa,kk,d, list_box, mix_list,rand_num,max_song, error,play_button,is_stop
 
@@ -773,40 +867,7 @@ def next_song():
 
 
 
-def pre_song():
-    global player, nowa,kk,d, list_box, mix_list,rand_num, error
 
-    if(max_song>0):
-        kk=0
-        d=0
-        if(nowa==0):
-            print("초기화")
-            nowa=max_song-1
-        else:
-            nowa-=1
-        player.stop()
-        #print(rand_num[nowa])
-        serr=0
-        while True:
-            if(set_rand==0):
-                media = get_media(mix_list[nowa],title_list[nowa])
-            else:
-                media = get_media(mix_list[rand_num[nowa]],title_list[rand_num[nowa]])
-            if(media=="Unable"):
-                serr+=1
-                nowa+=1
-                if(nowa==0):
-                    nowa=max_song-1
-                if(serr>3):
-                    messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요.")
-                    return False
-                continue
-            else:
-                error=0
-                video(media)
-                d=0
-                return False
-    #player.set_position(0.7)
 
 
 def stop_song():
@@ -818,10 +879,6 @@ def stop_song():
         d=0
         is_stop=1
         kill1=0
-        back_btn_img = tk.PhotoImage(file=resource_path("pause-fill.png"))
-        
-        play_button.configure(image=back_btn_img)
-        play_button.image = back_btn_img
 
 
 def control_play_pause():
@@ -830,24 +887,11 @@ def control_play_pause():
         vlc_status = player.get_state()
         if(vlc_status == vlc.State.Playing):
             player.pause()
-            is_stop=1
-
-            back_btn_img = tk.PhotoImage(file=resource_path("pause-fill.png"))
-            
-            play_button.configure(image=back_btn_img)
-            play_button.image = back_btn_img
-            
 
             return "stop"
         else:
             player.play()
-            is_stop=0
-            d=0
 
-            back_btn_img = tk.PhotoImage(file=resource_path("play-fill.png"))
-            
-            play_button.configure(image=back_btn_img)
-            play_button.image = back_btn_img
             return "start"
 
 
@@ -867,186 +911,180 @@ def play():
         if(vlc_status == vlc.State.Paused):
             player.pause()
             return "play"
-
-def default():
-    return "hello"
-def add1url(url):
-    global title_list, mix_list, max_song,rand_num,list_box
-    h=0
-    if(str(url).find('youtube.com')==-1 and str(url).find('youtu.be')==-1):
-        url='https://www.youtube.com/watch?v='+url
-    while True:
-        if(h>3):
-            print("adding error")
-            messagebox.showerror("오류", "음악 추가 실패")
-            return "Error"
-        try:
-            with youtube_dl.YoutubeDL(yt_ops) as ydl:
-                info_dict = ydl.extract_info(url, download=False)
-        except youtube_dl.utils.DownloadError as e:
-            messagebox.showerror("오류안내", "재생할 수 없는 유튜브 URL입니다.")
-            return False
-        video_id = info_dict.get("id", None)
-        video_title = info_dict.get('title', None)
-        if(video_title.strip() == ""):
-            h+=1
-            continue
-        
-        astral = re.compile(r'([^\u0000-\uffff])')
-        new_subject = ""
-        for j, ss in enumerate(re.split(astral, video_title)):
-            if not j%2:
-                new_subject += ss
-            else:
-                new_subject += '?' 
-        
-        mix_list.append(yt_init+video_id)
-        title_list.append(video_title)
-        list_box.insert(tk.END, video_title)
-        max_song+=1
-        a = random.sample(range(0,max_song),max_song)
-        for cu in a:
-            #print(cu)
-            rand_num.append(cu)
-        messagebox.showinfo("안내", "성공적으로 음악을 추가하였습니다.")
-        return True
-
- 
-
-
-def get_pl(url):
-    mix = None
-    while True:
-        try:
-            if(url.find('playlist?list=')!=-1 or url.find('&list=')!=-1):
-                mix = requests.get(url, timeout=5, headers=headers)
-            else:
-                return False, False
-        except (requests.ConnectionError, requests.Timeout) as exception:
-            print("no internet")
-        
-        except Exception as e:
-            time.sleep(2)
-            continue
-
-        soup = BeautifulSoup(mix.content, 'html.parser', from_encoding="utf8")
-        search_results = str(soup.findAll("script"))
-
-        if ("var ytInitialData = " in str(search_results)):
-
-            str1 = search_results.strip().split('var ytInitialData = ')[1].split(';</script>')[0]
-            j1 = json.loads(str1, encoding='utf8', strict=False)
-            #f=open("C:/bin/0919.txt", 'w', encoding='utf-8')
-            #f.write(str1)
-            #f.close()
-            toGet = []
-            titleList = []
-            try:
-                if(url.find('playlist?list=')!=-1):
-                    u = str(j1['contents']['twoColumnBrowseResultsRenderer']).split("playlistVideoRenderer")
-                    l_num = len(u)
-                    print(len(u))
-                    for i in range(1, l_num):
-                        my = str(u[i])
-                        
-                        vid = my.split(r"videoId': ")[1][1:].split(",")[0][:-1]
-                        print(vid)
-                        tit= my.split(r"[{'text': ")[1][1:].split('}')[0][:-1]
-                        if(vid.split() !='' and vid.split()):
-                            astral = re.compile(r'([^\u0000-\uffff])')
-                            new_subject = ""
-                            for j, ss in enumerate(re.split(astral, tit)):
-                                if not j%2:
-                                    new_subject += ss
-                                else:
-                                    new_subject += '?' 
-                            toGet.append(yt_init+vid)
-                            titleList.append(tit)
-                    return titleList, toGet
-                elif(url.find('&list=')!=-1):
-                    #print(j1['contents']['twoColumnWatchNextResults']['playlist']['playlist']['contents'][0]['playlistPanelVideoRenderer']) ==> debug용
-                    for i in j1['contents']['twoColumnWatchNextResults']['playlist']['playlist']['contents']:
-                        if 'unplayableText' not in i['playlistPanelVideoRenderer']:
-
-                            
-                            astral = re.compile(r'([^\u0000-\uffff])')
-                            old =  i['playlistPanelVideoRenderer']['title']['simpleText']
-                            new_subject = ""
-                            for j, ss in enumerate(re.split(astral, old)):
-                                if not j%2:
-                                    new_subject += ss
-                                else:
-                                    new_subject += '?' 
-                            titleList.append(new_subject)
-                            
-                            toGet.append(yt_init+i['playlistPanelVideoRenderer']['videoId'])
-                    return titleList, toGet
-
-            except:
-                messagebox.showerror("오류", "올바른 플레이리스트 URL이 아닙니다")
-                return False, False
-
+client='windows'
+osinfo='Windows'
+def info_sonami():
+    messagebox.showinfo("개발자 소개", "개발자의 블로그에 놀러오세요.\n블로그 주소: https://blog.projectdh.link")
+def check_update():
+    if(client=='windows'):
+        source=requests.get("http://wcheck.projectdh.link").text
+    else:
+        source=requests.get("http://mcheck.projectdh.link").text
+    try:
+        if(source!='unable'):
+            messagebox.showinfo("안내", "OS: "+osinfo+"\n현재 버전: 0.2\n최신 버전: "+source +"\n항상 최신버전을 유지해주세요.\n최신버전 다운로드: http://ytplayer.projectdh.link")
         else:
-            print("에러")
-            return False, False
+            messagebox.showinfo("안내", "업데이트 확인 실패하였습니다.")
+    except:
+        messagebox.showinfo("안내", "업데이트 확인 실패하였습니다.")
+ku=30
 
-def media_change(event):
-    global player
-    time.sleep(3)
-    vlc_status = player.get_state()
-    s=0
+root = tk.Tk()
+root.title('Youtube Music Player by Sonami')
+root.iconbitmap(resource_path("player.ico"))
+if(client=='mac'):
+    root.geometry("670x400")
+elif(client=='windows'):
+    root.geometry("650x400")
+
+root.resizable(False, False)
+
+#root.protocol('WM_DELETE_WINDOW', on_closing)
+
+root.bind('<Command-o>', openYT1)
+
+menubar = tk.Menu(root)
+filemenu = tk.Menu(menubar, tearoff=0)
+editmenu = tk.Menu(menubar, tearoff=0)
+savemenu = tk.Menu(menubar, tearoff=0)
+moremenu = tk.Menu(menubar, tearoff=0)
+
+
+menubar.add_cascade(label="File", menu=filemenu)
+menubar.add_cascade(label="Edit", menu=editmenu)
+
+menubar.add_cascade(label="MYList", menu=savemenu)
+menubar.add_cascade(label="More", menu=moremenu)
+
+filemenu.add_command(label="유튜브 플레이리스트 추가 (txt 파일)", command=openYT_txt)
+filemenu.add_command(label="유튜브 플레이리스트 URL 추가", command=openYT)
+
+filemenu.add_command(label="유튜브 URL 추가", command=openYT_URL)
+editmenu.add_command(label="선택한 곡 삭제", command=onselect_delete)
+editmenu.add_command(label="모든 곡 삭제", command=delete_all)
+
+savemenu.add_command(label="저장된 재생목록 가져오기", command=load_list)
+savemenu.add_command(label="현재 재생목록을 파일로 저장", command=save_list)
+
+moremenu.add_command(label="업데이트 확인", command=check_update)
+moremenu.add_command(label="개발자 소개", command=info_sonami)
+frm = tk.Frame(root)
+frm.grid(row=0, column=0, sticky=tk.N+tk.S)
+#window.rowconfigure(1, weight=1)
+#window.columnconfigure(1, weight=1)
+root.rowconfigure(1, weight=1)
+root.columnconfigure(1, weight=1)
+
+
+
+
+text = tk.StringVar()
+text1 = tk.StringVar()
+text2 = tk.StringVar()
+text3 = tk.StringVar()
+text3.set("VOL")
+
+scrollbar = tk.Scrollbar(frm,orient="vertical")
+scrollbar.pack(side=tk.RIGHT, fill = "y")
+
+
+list_box = tk.Listbox(frm, width=40, height=20,yscrollcommand=scrollbar.set, activestyle=tk.NONE)
+list_box.pack(expand=True, fill=tk.Y, padx=10, pady=15)
+
+list_box.bind("<Double-Button-1>", ondouble_play)
+list_box.bind("<Delete>", ondelete_key)
+list_box.bind("<Escape>", onEsc_key)
+
+scrollbar.config(command = list_box.yview)
+
+
+back_btn_img = tk.PhotoImage(file=resource_path("rewind-fill.png"))
+
+forward_btn_img = tk.PhotoImage(file=resource_path("speed-fill.png"))
+play_btn_img = tk.PhotoImage(file=resource_path("play-fill.png"))
+stop_btn_img = tk.PhotoImage(file=resource_path("stop-fill.png"))
+
+
+forward_btn=tk.Button(root, text="10초 >>",command=on10forward)
+
+
+back_btn=tk.Button(root, text="<< 10초",command=on10back)
+
+
     
-    while s==0:
-        if(vlc_status == vlc.State.Playing):
-            duration = player.get_length()
 
-            min = int(duration/60000)
-            sec = int((duration/1000)%60)
-            print("duration: " + str(min)+":"+str(sec))
+
+want_btn=tk.Button(root, text="선택한 곡 재생",command=onselect)
+
+
+
+now_song = tk.Label(root, textvariable=text, font=("맑은고딕", 13, "italic"))
+now_song1 = tk.Label(root, textvariable=text1, wraplength=250, font=("맑은고딕", 9, "italic"))
+error_label = tk.Label(root, textvariable=text2, wraplength=200)
+volume_label = tk.Label(root, textvariable=text3, wraplength=200,font=("맑은고딕", 13, "italic"))
+
+back_button = tk.Button(root, image=back_btn_img, borderwidth=0, command=pre_song, state=tk.NORMAL)
+forward_button = tk.Button(root, image=forward_btn_img, borderwidth=0, command=next_song)
+play_button = tk.Button(root, image=play_btn_img, borderwidth=0, command=control_play_pause)
+stop_button = tk.Button(root, image=stop_btn_img, borderwidth=0, command=stop_song)
+Checky1=tk.IntVar()
+checkbutton1=tk.Checkbutton(root, text="Shuffle", variable=Checky1, command=set_random)
+
+
+
+actual_slider = tk.Scale(root, from_=0, to=100,
+                        command=ttk_slider_callback, variable=volume, orient="horizontal")
+
+actual_slider.set(50)
+
+
+if(client=='mac'):
+    forward_btn.place(x=500+ku, y=120)
+    back_btn.place(x=440+ku, y=120)
+    want_btn.place(x=500+ku, y=200, anchor="center")
+
+    checkbutton1.place(x=460+ku, y=360)
+
+    actual_slider.place(x=500+ku, y=310,anchor="center")
+    volume_label.place(x=410+ku, y=307)
+    now_song.place(x=450+ku, y=20)
+    now_song1.place(x=500+ku, y=80,anchor="center")
+    error_label.place(x=500+ku, y=250, anchor="center")
+
+    back_button.place(x=410+ku, y=150)
+    play_button.place(x=460+ku, y=150)
+    stop_button.place(x=510+ku, y=150)
+    forward_button.place(x=560+ku, y=150)
+
+elif(client=='windows'):
+    forward_btn.place(x=480, y=120)
+    back_btn.place(x=410, y=120)
+    want_btn.place(x=470, y=200, anchor="center")      
+
+    checkbutton1.place(x=440, y=330)
+
+    actual_slider.place(x=470, y=300,anchor="center")
+    volume_label.place(x=370, y=295)
+    now_song.place(x=430, y=20)
+    now_song1.place(x=480, y=80,anchor="center")
+    error_label.place(x=470, y=250, anchor="center")
+    
+    back_button.place(x=390, y=150)
+    play_button.place(x=440, y=150)
+    stop_button.place(x=490, y=150)
+    forward_button.place(x=540, y=150) 
         
-            s=1
-        
-        vlc_status = player.get_state()
+# self.root.protocol("WM_DELETE_WINDOW", self.callback)
+
+# label = tk.Label(self.root, text="Hello World")
+# label.pack()
+root.config(menu=menubar)
+#t = threading.Thread(target=chk)
+#t.start()
+root.after(100, update)
+root.mainloop()
 
 
-def media_finish(event):
-    
-    global nowa, player,d,list_box,kk, error
-    kk=0
-    print("미디어 종료")
-    nowa+=1
-    if(nowa==max_song):
-        print("초기화")
-        nowa=0
-    serr=0
-    while True:
-        if(set_rand==0):
-            media = get_media(mix_list[nowa],title_list[nowa])
-        else:
-            media = get_media(mix_list[rand_num[nowa]],title_list[rand_num[nowa]])
 
-        if(media=="Unable"):
-            serr+=1
-            nowa+=1
-            if(nowa==max_song):
-                nowa=0
-            if(serr>3):
-                messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요.")
-                return False
-            continue
-        else:
-            error=0
-            video(media)
-            d=0
-            return False
 
-vlc_instance = vlc.Instance('--verbose -1')
-player = vlc_instance.media_player_new()
 
-if __name__ == "__main__":
-    
-    app1 = App()
-    app2 = App2()
-    ready=1
-    title_list=[]
-    mix_list=[]
