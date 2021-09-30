@@ -103,7 +103,7 @@ def add1url(url):
                 with youtube_dl.YoutubeDL(yt_ops) as ydl:
                     info_dict = ydl.extract_info(onekey, download=False)
             except youtube_dl.utils.DownloadError as e:
-                messagebox.showerror("오류안내", "재생할 수 없는 유튜브 URL입니다.")
+                messagebox.showerror("오류안내", "재생할 수 없는 유튜브 URL입니다")
                 return False
             video_id = info_dict.get("id", None)
             video_title = info_dict.get('title', None)
@@ -127,10 +127,10 @@ def add1url(url):
             for cu in a:
                 #print(cu)
                 rand_num.append(cu)
-            messagebox.showinfo("안내", "성공적으로 음악을 추가하였습니다.")
+            messagebox.showinfo("안내", "성공적으로 음악을 추가하였습니다")
             return True
         else:
-            messagebox.showerror("오류", "올바르지 않은 유튜브 URL입니다.")
+            messagebox.showerror("오류", "올바르지 않은 유튜브 URL입니다")
             return False
 
  
@@ -156,7 +156,7 @@ def media_finish(event):
             if(nowa==max_song):
                 nowa=0
             if(serr>3):
-                messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요.")
+                messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요")
                 return False
             continue
         else:
@@ -205,18 +205,20 @@ def ytpl_parse(j1):
     titleList=[]
 
     for i in j1['contents']['twoColumnWatchNextResults']['playlist']['playlist']['contents']:
-        if 'unplayableText' not in i['playlistPanelVideoRenderer']:
-            
-            vid = i['playlistPanelVideoRenderer']['videoId']
-            video_title=i['playlistPanelVideoRenderer']['title']['simpleText']
 
-            toGet.append(yt_init+vid)
-            em = removeEmoji(video_title)  
-            try:
-                titleList.append(em)
-            except:
-                em = removeEmoji2(video_title)
-                titleList.append(em)
+        if(len(str(i).split("playlistPanelVideoRenderer"))>1):
+            if 'unplayableText' not in i['playlistPanelVideoRenderer']:
+                
+                vid = i['playlistPanelVideoRenderer']['videoId']
+                video_title=i['playlistPanelVideoRenderer']['title']['simpleText']
+
+                toGet.append(yt_init+vid)
+                em = removeEmoji(video_title)  
+                try:
+                    titleList.append(em)
+                except:
+                    em = removeEmoji2(video_title)
+                    titleList.append(em)
 
     return titleList, toGet
 def get_pl(url):
@@ -458,7 +460,7 @@ def onselect():
                 if(nowa==max_song):
                     nowa=0
                 if(serr>3):
-                    messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요.")
+                    messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요")
                     return False
                 continue
             else:
@@ -470,7 +472,7 @@ def onselect():
                 serr=0
                 return False 
     else:
-        messagebox.showerror("오류", "재생할 곡이 없습니다.")
+        messagebox.showerror("오류", "재생할 곡이 없습니다")
 def delete_all():
     global player, list_box,title_list,mix_list,max_song, text, text1
     player.stop()
@@ -481,7 +483,7 @@ def delete_all():
     mix_list = []
     text.set("")
     text1.set("")
-    messagebox.showinfo("안내", "모든 노래를 삭제하였습니다.")
+    messagebox.showinfo("안내", "모든 노래를 삭제하였습니다")
 def onselect_delete():
     global player,d,rand_num,list_box,title_list,mix_list,nowa,max_song,set_rand, error, d, is_stop
     if(len(list_box.curselection())>0):
@@ -513,7 +515,7 @@ def onselect_delete():
                     nowa+=1
 
                     if(serr>3):
-                        messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요.")
+                        messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요")
                         return False
                     continue
                 else:
@@ -521,14 +523,14 @@ def onselect_delete():
                     video(media)
                     return False
     else:
-        messagebox.showerror("오류", "삭제할 곡이 없습니다.")
+        messagebox.showerror("오류", "삭제할 곡이 없습니다")
 def openReal(yturl):
     global player, rand_num, list_box, title_list,mix_list, nowa, max_song,d,kk,ready, new_open, error
     #mix_init = requests.get('https://www.youtube.com/playlist?list=PL4fGSI1pDJn6jXS_Tv_N9B8Z0HTRVJE0m', headers=headers)
     #init_plid=str(mix_init.text).split('videoId":"')[1].split('"')[0]
     title_list1, mix_list1 = get_pl(yturl)
     if(title_list1 == False):
-        messagebox.showerror("오류", '올바른 플레이리스트 URL인지 확인하여주세요.')
+        messagebox.showerror("오류", '올바른 플레이리스트 URL인지 확인하여주세요')
     else:
 
         title_list = title_list + title_list1
@@ -546,7 +548,7 @@ def openReal(yturl):
 
         for i in range(len(title_list1)):
             list_box.insert(tk.END, title_list1[i])
-        messagebox.showinfo("안내", "성공적으로 %s개의 곡을 추가하였습니다."%(str(num)))
+        messagebox.showinfo("안내", "성공적으로 %s개의 곡을 추가하였습니다"%(str(num)))
 
 
 
@@ -608,12 +610,12 @@ def load_list():
                     #print(cu)
                     rand_num.append(cu)
                 
-            messagebox.showinfo("안내", str(num)+"개의 곡을 추가하였습니다.")
+            messagebox.showinfo("안내", str(num)+"개의 곡을 추가하였습니다")
             
         except PermissionError as e:
             messagebox.showerror("오류", "재생목록 불러오기 실패")
         except Exception as e:
-            messagebox.showerror("오류", "재생목록 불러오기 실패, 올바른 재생목록인지 확인해주세요.")
+            messagebox.showerror("오류", "재생목록 불러오기 실패, 올바른 재생목록인지 확인해주세요")
             print(e)
 def save_list():
     global title_list, mix_list
@@ -635,9 +637,9 @@ def save_list():
 
                     #print(title_list[i]+','+mix_list[i])
                     f.writelines(title_list[i]+','+mix_list[i].replace('\n', '')+'\n')
-            messagebox.showinfo("안내", "%s개의 곡을 저장목록에 저장하였습니다."%(str(num)))
+            messagebox.showinfo("안내", "%s개의 곡을 저장목록에 저장하였습니다"%(str(num)))
         except PermissionError as e:
-            messagebox.showerror("오류", "재생목록 저장 실패, 다른 이름으로 저장해주세요.")
+            messagebox.showerror("오류", "재생목록 저장 실패, 다른 이름으로 저장해주세요")
         except Exception as e:
             messagebox.showerror("오류", "재생목록 저장 실패")
 def openYT_txt():
@@ -741,7 +743,7 @@ def ondouble_play(event):
                 if(nowa==max_song):
                     nowa=0
                 if(serr>3):
-                    messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요.")
+                    messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요")
                     return False
                 continue
             else:
@@ -802,7 +804,7 @@ def ondelete_key(event):
                     serr+=1
                     nowa+=1
                     if(serr>3):
-                        messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요.")
+                        messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요")
                         return False
                     continue
                 else:
@@ -811,7 +813,7 @@ def ondelete_key(event):
 
                     return False
     else:
-        messagebox.showerror("오류", "삭제할 곡이 없습니다.")
+        messagebox.showerror("오류", "삭제할 곡이 없습니다")
 def pre_song():
     global player, nowa,kk,d, list_box, mix_list,rand_num, error
 
@@ -837,7 +839,7 @@ def pre_song():
                 if(nowa==0):
                     nowa=max_song-1
                 if(serr>3):
-                    messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요.")
+                    messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요")
                     return False
                 continue
             else:
@@ -873,7 +875,7 @@ def next_song():
                 if(nowa==max_song):
                     nowa=0
                 if(serr>3):
-                    messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요.")
+                    messagebox.showerror("오류", "인터넷에 연결이 되어있는지 확인해주세요")
                     return False
                 continue
             else:
@@ -934,34 +936,45 @@ def play():
             return "play"
 
 def info_sonami():
-    messagebox.showinfo("개발자 소개", "개발자의 블로그에 놀러오세요.\n블로그 주소: https://blog.projectdh.link")
+    messagebox.showinfo("개발자 소개", "개발자의 블로그에 놀러오세요\n블로그 주소: https://blog.projectdh.link")
 def check_update():
     if(client=='windows'):
         source=requests.get("http://wcheck.projectdh.link").text
-    else:
+    elif(client=='mac'):
         source=requests.get("http://mcheck.projectdh.link").text
+    elif(client=='ubuntu'):
+        source=requests.get("http://ucheck.projectdh.link").text
     try:
         if(source!='unable'):
-            messagebox.showinfo("안내", "OS: "+osinfo+"\n현재 버전: 0.3\n최신 버전: "+source +"\n항상 최신버전을 유지해주세요.\n최신버전 다운로드: http://ytplayer.projectdh.link")
+            messagebox.showinfo("안내", "OS: "+osinfo+"\n현재 버전: 0.4\n최신 버전: "+source +"\n항상 최신버전을 유지해주세요\n최신버전 다운로드: http://ytplayer.projectdh.link")
         else:
-            messagebox.showinfo("안내", "업데이트 확인 실패하였습니다.")
+            messagebox.showinfo("안내", "업데이트 확인 실패하였습니다")
     except:
-        messagebox.showinfo("안내", "업데이트 확인 실패하였습니다.")
+        messagebox.showinfo("안내", "업데이트 확인 실패하였습니다")
 ku=30
 
 root = tk.Tk()
 root.title('Youtube Music Player by Sonami')
-root.iconbitmap(resource_path("player.ico"))
 if(client=='mac'):
     root.geometry("670x400")
+    root.iconbitmap(resource_path("player.ico"))
+    root.bind('<Command-o>', openYT1)
 elif(client=='windows'):
     root.geometry("650x400")
+    root.iconbitmap(resource_path("player.ico"))
+    root.bind('<Control-o>', openYT1)
+elif(client=='ubuntu'):
+    root.geometry("650x400")
+    root.tk.call('tk', 'scaling', 0.5)
+    img = tk.PhotoImage(file='icon.png')
+    root.tk.call('wm', 'iconphoto', root._w, img)
+    root.bind('<Control-o>', openYT1)
 
 root.resizable(False, False)
 
 #root.protocol('WM_DELETE_WINDOW', on_closing)
 
-root.bind('<Command-o>', openYT1)
+
 
 menubar = tk.Menu(root)
 filemenu = tk.Menu(menubar, tearoff=0)
@@ -1093,7 +1106,24 @@ elif(client=='windows'):
     play_button.place(x=440, y=150)
     stop_button.place(x=490, y=150)
     forward_button.place(x=540, y=150) 
-        
+elif(client=='ubuntu'):
+    lk=10
+    forward_btn.place(x=480+lk, y=120)
+    back_btn.place(x=410+lk, y=120)
+    want_btn.place(x=475+lk, y=200, anchor="center")      
+
+    checkbutton1.place(x=440+lk, y=330)
+
+    actual_slider.place(x=490+lk, y=300,anchor="center")
+    volume_label.place(x=390+lk, y=295)
+    now_song.place(x=430+lk, y=20)
+    now_song1.place(x=480+lk, y=80,anchor="center")
+    error_label.place(x=470+lk, y=250, anchor="center")
+    
+    back_button.place(x=390+lk, y=150)
+    play_button.place(x=440+lk, y=150)
+    stop_button.place(x=490+lk, y=150)
+    forward_button.place(x=540+lk, y=150) 
 # self.root.protocol("WM_DELETE_WINDOW", self.callback)
 
 # label = tk.Label(self.root, text="Hello World")
